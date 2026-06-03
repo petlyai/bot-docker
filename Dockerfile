@@ -1,31 +1,9 @@
-FROM rust:1.86-alpine3.21 AS supervisor-builder
-
-RUN apk add --no-cache musl-dev pkgconfig fuse3-dev
-
-# alpine's fuse3-dev ships libfuse3.so but no libfuse3.a — disable
-# musl's default static-crt link so the fuser crate finds the dynamic
-# library. Runtime stage installs fuse3 to provide libfuse3.so.3.
-ENV RUSTFLAGS="-C target-feature=-crt-static"
-
-ARG SUPERVISOR_SRC=./supervisor
-COPY ${SUPERVISOR_SRC} /src
-WORKDIR /src
-RUN cargo build --release --features fuse --bin supervisor
-
-
 FROM alpine:3.21
 
 RUN apk add --no-cache \
       nodejs npm \
       git bash ncdu curl unzip \
-      libstdc++ libgcc \
-      fuse3
-
-# fuser crate's AutoUnmount mount option implies allow_other, which
-# fusermount3 refuses for non-root unless this flag is set. Without it
-# the in-container supervise binary can't mount the loadout because the
-# container's `agent` user is unprivileged.
-RUN echo 'user_allow_other' >> /etc/fuse.conf
+      libstdc++ libgcc
 
 RUN npm install -g @anthropic-ai/claude-code
 
@@ -38,12 +16,11 @@ ENV DISABLE_AUTOUPDATER=1
 RUN adduser -D -s /bin/bash agent && \
     mkdir -p /workdir && chown agent:agent /workdir
 
-COPY --from=supervisor-builder /src/target/release/supervisor /usr/local/bin/supervisor
-
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
 USER agent
 WORKDIR /workdir
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Host supervisor owns FUSE, WS, PTY-IO. Container's only job is to run
+# claude (and whatever bun-backed plugin servers claude itself spawns).
+# Args are supplied by the `docker run` invocation — the host builds them
+# from the agent's loadout snapshot.
+ENTRYPOINT ["claude"]

@@ -2,41 +2,34 @@
 
 Container image for the docker-deployed variant of a sibatabot agent.
 
-The host-side supervisor's control daemon, when an agent has
-`environment=docker` in the cloud, runs this image as a named container
-`sibatabot-<agent-symbolic-name>` and lets the in-container supervisor
-binary mount FUSE, open the cloud sync session, and supervise claude.
+The host-side supervisor manages everything outside the container:
+the per-agent FUSE mount, the cloud WS session, the rolling PTY
+buffer, and command injection. The image's only job is to run claude
+(and whatever bun-backed plugin servers claude itself spawns).
 
 ## Contents
 
 - `claude` (`@anthropic-ai/claude-code`) — the agent's CLI
 - `bun` — runtime for MCP plugins (e.g. telegram channel server.ts)
-- `fuse3` — userspace tools (`fusermount3`, libfuse) for in-container FUSE
-- `supervisor` — host's supervisor binary, in `run-agent` mode
 
-Telegram plugin is **not** baked. Plugins arrive over FUSE per the
-agent's cloud-attached loadout.
+No supervisor binary inside, no in-container FUSE: those move host-side.
 
 ## Build
 
-The `supervisor` source tree is expected at `./supervisor/` (Git
-submodule pointing at `sibatabot/supervisor`).
-
 ```bash
-git submodule update --init --recursive
 docker build -t sibatabot-bot-docker:dev .
 ```
 
 ## Run (manual)
 
-The container expects to be invoked by the host supervisor; for a
-manual probe pass run-agent args directly:
+The container expects to be invoked by the host supervisor. For a
+manual probe pass claude args directly:
 
 ```bash
-docker run --rm \
-  --cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined \
-  -v $HOME/.supervisor/agents/test/claude-local:/workdir/.claude-local \
-  -e SUPERVISOR_CLOUD_URL=https://cloud.example.com \
+docker run --rm -it --name sibatabot-test \
+  -v $HOST_FUSE_MOUNT:/workdir/.claude \
+  -v $HOST_CLAUDE_LOCAL:/workdir/.claude-local \
+  -v $HOST_CLAUDE_JSON:/workdir/.claude.json \
   ghcr.io/sibatabot/bot-docker:latest \
-  --cloud-url $SUPERVISOR_CLOUD_URL run-agent --workdir /workdir --writer fuse
+  --dangerously-skip-permissions
 ```
