@@ -21,6 +21,12 @@ RUN apk add --no-cache \
       libstdc++ libgcc \
       fuse3
 
+# fuser crate's AutoUnmount mount option implies allow_other, which
+# fusermount3 refuses for non-root unless this flag is set. Without it
+# the in-container supervise binary can't mount the loadout because the
+# container's `agent` user is unprivileged.
+RUN echo 'user_allow_other' >> /etc/fuse.conf
+
 RUN npm install -g @anthropic-ai/claude-code
 
 RUN curl -fsSL https://bun.sh/install | bash && \
