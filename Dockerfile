@@ -2,6 +2,7 @@ FROM alpine:3.21
 
 RUN apk add --no-cache \
       nodejs npm \
+      python3 \
       git bash ncdu curl unzip \
       libstdc++ libgcc
 
