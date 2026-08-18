@@ -1,12 +1,21 @@
-FROM alpine:3.21
+FROM ubuntu:24.04
 
-RUN apk add --no-cache \
-      nodejs npm \
-      python3 \
-      git bash ncdu curl unzip \
-      libstdc++ libgcc
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN npm install -g @anthropic-ai/claude-code
+# claude-code requires Node >= 22 and Ubuntu's own nodejs package is v18, so
+# Node comes from NodeSource rather than the distro.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl gnupg \
+      python3 git bash ncdu unzip \
+      libstdc++6 && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get purge -y --auto-remove gnupg && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @anthropic-ai/claude-code && \
+    npm cache clean --force
 
 RUN curl -fsSL https://bun.sh/install | bash && \
     mv /root/.bun/bin/bun /usr/local/bin/bun && \
@@ -14,7 +23,11 @@ RUN curl -fsSL https://bun.sh/install | bash && \
 
 ENV DISABLE_AUTOUPDATER=1
 
-RUN adduser -D -s /bin/bash agent && \
+# The agent owns the host-side bind mounts, which on Linux hosts carry the
+# host user's numeric uid — 1000 in practice. ubuntu:24.04 already parks a
+# stock `ubuntu` user on 1000, so it is removed to keep the agent on that uid.
+RUN userdel --remove ubuntu && \
+    useradd --uid 1000 --create-home --shell /bin/bash agent && \
     mkdir -p /workdir && chown agent:agent /workdir
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
