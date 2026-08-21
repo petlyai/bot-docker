@@ -21,7 +21,7 @@ RUN apt-get update && \
 # reach the image — this layer is cached on the command text, so a floating
 # branch would keep serving the first build forever.
 RUN cargo install --git https://github.com/sibatabot/agent-master.git \
-      --rev 56b59c25cc8cc1334441c799a1a0c9bcb2a8074e agent-master --root /out
+      --rev 761569ba651a6bac8b0958a89f5aa5d5018099ab agent-master --root /out
 
 
 FROM ubuntu:24.04
@@ -47,8 +47,8 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     mv /root/.bun/bin/bun /usr/local/bin/bun && \
     rm -rf /root/.bun
 
-COPY --from=agent-master /out/bin/agent-master /usr/local/bin/agent-master
-RUN agent-master --help >/dev/null
+COPY --from=agent-master /out/bin/svora-am /usr/local/bin/svora-am
+RUN svora-am --help >/dev/null
 
 ENV DISABLE_AUTOUPDATER=1
 
