@@ -1,3 +1,29 @@
+# syntax=docker/dockerfile:1.7
+
+# agent-master is what owns the agent's process and terminal inside the
+# container; the host supervisor reaches it on a published port and never
+# touches the process itself.
+#
+# bookworm, not the current rust:1-slim: the runtime below is Ubuntu 24.04
+# (glibc 2.39) and a binary linked against a newer glibc will not start there.
+FROM rust:1-slim-bookworm AS agent-master
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      git ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# The revision is the one the supervisor's own Cargo.lock pins its agent-master
+# client at: both ends of the port have to speak the same build of the protocol,
+# which has no version handshake to fall back on. It is also what makes a bump
+# reach the image — this layer is cached on the command text, so a floating
+# branch would keep serving the first build forever.
+RUN cargo install --git https://github.com/sibatabot/agent-master.git \
+      --rev 56b59c25cc8cc1334441c799a1a0c9bcb2a8074e agent-master --root /out
+
+
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -21,6 +47,9 @@ RUN curl -fsSL https://bun.sh/install | bash && \
     mv /root/.bun/bin/bun /usr/local/bin/bun && \
     rm -rf /root/.bun
 
+COPY --from=agent-master /out/bin/agent-master /usr/local/bin/agent-master
+RUN agent-master --help >/dev/null
+
 ENV DISABLE_AUTOUPDATER=1
 
 # The agent owns the host-side bind mounts, which on Linux hosts carry the
@@ -36,10 +65,10 @@ RUN chmod 0755 /usr/local/bin/entrypoint.sh
 USER agent
 WORKDIR /workdir
 
-# Host supervisor owns FUSE, WS, PTY-IO. Container's only job is to run
-# claude (and whatever bun-backed plugin servers claude itself spawns).
-# The entrypoint wrapper sources the FUSE-served `.claude/env` (merged
-# env loadout-items) into the process environment, then execs claude.
-# Args are supplied by the `docker run` invocation — the host builds them
-# from the agent's loadout snapshot — and reach claude as "$@".
+# Host supervisor owns FUSE, WS and the cloud session. The container runs
+# agent-master, and agent-master starts claude (and whatever bun-backed plugin
+# servers claude itself spawns). The entrypoint wrapper sources the FUSE-served
+# `.claude/env` (merged env loadout-items) into the process environment, then
+# execs what the `docker run` invocation asked for — the host builds that from
+# the agent's loadout snapshot.
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
