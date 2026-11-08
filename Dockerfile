@@ -40,7 +40,7 @@ RUN apt-get update && \
     apt-get purge -y --auto-remove gnupg && \
     rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @anthropic-ai/claude-code && \
+RUN npm install -g @anthropic-ai/claude-code@2.1.311 && \
     npm cache clean --force
 
 RUN curl -fsSL https://bun.sh/install | bash && \
