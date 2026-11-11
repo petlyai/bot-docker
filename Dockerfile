@@ -28,9 +28,21 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# When Canonical's DNS goes down, every *.ubuntu.com host goes with it.
+# apt's own mirror+file fallback hangs once a host fails to resolve, hence the
+# swap up front.
+#
 # claude-code requires Node >= 22 and Ubuntu's own nodejs package is v18, so
 # Node comes from NodeSource rather than the distro.
-RUN apt-get update && \
+RUN for swap in \
+      archive.ubuntu.com/ubuntu/=mirrors.edge.kernel.org/ubuntu/ \
+      security.ubuntu.com/ubuntu/=mirrors.edge.kernel.org/ubuntu/ \
+      ports.ubuntu.com/ubuntu-ports/=ftp.tu-chemnitz.de/pub/linux/ubuntu-ports/; do \
+      stock="${swap%%=*}"; \
+      getent hosts "${stock%%/*}" >/dev/null || \
+        sed -i "s#http://$stock#http://${swap#*=}#" /etc/apt/sources.list.d/ubuntu.sources; \
+    done && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg \
       python3 git bash ncdu unzip \
