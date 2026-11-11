@@ -20,7 +20,7 @@ RUN apt-get update && \
 # which has no version handshake to fall back on. It is also what makes a bump
 # reach the image — this layer is cached on the command text, so a floating
 # branch would keep serving the first build forever.
-RUN cargo install --git https://github.com/sibatabot/agent-master.git \
+RUN cargo install --git https://github.com/petlyai/agent-master.git \
       --rev 761569ba651a6bac8b0958a89f5aa5d5018099ab agent-master --root /out
 
 

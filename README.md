@@ -1,4 +1,4 @@
-# sibatabot/bot-docker
+# petlyai/bot-docker
 
 Container image for the docker-deployed variant of a sibatabot agent.
 
@@ -19,7 +19,7 @@ No supervisor binary inside, no in-container FUSE: those stay host-side.
 ## Build
 
 ```bash
-docker build -t ghcr.io/sibatabot/bot-docker:latest .
+docker build -t ghcr.io/petlyai/bot-docker:latest .
 ```
 
 ## Run (manual)
@@ -34,7 +34,7 @@ docker run -d --name sibatabot-test \
   -v $HOST_FUSE_MOUNT:/workdir/.claude \
   -v $HOST_CLAUDE_LOCAL:/workdir/.claude-local \
   -v $HOST_CLAUDE_JSON:/workdir/.claude.json \
-  ghcr.io/sibatabot/bot-docker:latest \
+  ghcr.io/petlyai/bot-docker:latest \
   svora-am --listen 0.0.0.0:27620
 
 amctl --server 127.0.0.1:27620 start --cwd /workdir -- claude --dangerously-skip-permissions
